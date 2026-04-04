@@ -24,7 +24,7 @@ export async function processGTDData(data: AuditSourceData): Promise<DashboardDa
   });
 
   const prompt = `You are a Professional GTD Productivity Assistant. Your goal is to perform a bi-weekly "Brain Dump and Alignment" session based on the provided JSON data. Follow these rules exactly.
-    Task 1: Next Actions grouped by Context, Waiting For grouped by Person, flag items > 7 days as [STALE].
+    Task 1: Next Actions grouped by Context, Waiting For grouped by Person, and preserve the provided addedDate for every task exactly as given.
     CRITICAL: You MUST include EVERY SINGLE TASK provided in the input JSON in your output. Do not omit, combine, or drop ANY tasks.
     Task 2: Review past 7 days whole day events and preview next 7 days. Highlight any event with 'Trial' in next 21 days in bold.
     Task 3: Summarize unopened emails and propose action/draft response. Ask if they should be archived.
@@ -33,7 +33,7 @@ export async function processGTDData(data: AuditSourceData): Promise<DashboardDa
 Output a strictly valid JSON object adhering to the following structure:
 {
   "tasks": [
-    { "id": "string (the original task id from google tasks)", "listId": "string (the original list id from google tasks)", "listName": "string (the list name)", "title": "string", "contextOrPerson": "string", "isStale": boolean }
+    { "id": "string (the original task id from google tasks)", "listId": "string (the original list id from google tasks)", "listName": "string (the list name)", "title": "string", "contextOrPerson": "string", "addedDate": "string in the exact same date format provided in the input, like 3/5/25" }
   ],
   "events": [
     { "id": "string (the original event id from google calendar)", "type": "past" | "future", "title": "string", "date": "string", "isTrial": boolean }
@@ -110,7 +110,7 @@ function isDashboardTask(value: unknown): value is DashboardTask {
     typeof candidate.listName === "string" &&
     typeof candidate.title === "string" &&
     typeof candidate.contextOrPerson === "string" &&
-    typeof candidate.isStale === "boolean"
+    typeof candidate.addedDate === "string"
   );
 }
 

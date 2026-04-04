@@ -51,7 +51,7 @@ export type DashboardTask = {
   listName: string;
   title: string;
   contextOrPerson: string;
-  isStale: boolean;
+  addedDate: string;
 };
 
 export type DashboardEvent = {

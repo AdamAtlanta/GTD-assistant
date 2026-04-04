@@ -79,6 +79,19 @@ export async function archiveEmailAction(messageId: string): Promise<MutationAct
   }
 }
 
+export async function deleteEmailAction(messageId: string): Promise<MutationActionResult> {
+  await getAuthenticatedSession();
+
+  try {
+    const { deleteEmail } = await import("@/lib/gmail");
+    await deleteEmail(messageId);
+    return { success: true };
+  } catch (error) {
+    console.error("Delete email error:", error);
+    return { success: false, error: getErrorMessage(error) };
+  }
+}
+
 export async function createTaskFromEmailAction(
   messageId: string,
   listName: string,
@@ -88,9 +101,7 @@ export async function createTaskFromEmailAction(
 
   try {
     const { createTask } = await import("@/lib/tasks");
-    const { archiveEmail } = await import("@/lib/gmail");
     await createTask(listName, title);
-    await archiveEmail(messageId);
     return { success: true };
   } catch (error) {
     console.error("Create task from email error:", error);

@@ -8,6 +8,7 @@ import {
   completeTaskAction,
   createTaskFromEmailAction,
   createTaskFromEventAction,
+  deleteEmailAction,
   runGTDAudit,
 } from "./actions";
 
@@ -26,12 +27,16 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const [processingTasks, setProcessingTasks] = useState<Set<string>>(new Set());
-  const [processingEmails, setProcessingEmails] = useState<Set<string>>(new Set());
+  const [processingEmailActions, setProcessingEmailActions] = useState<
+    Record<string, "archive" | "delete">
+  >({});
   const [processingEmailToTask, setProcessingEmailToTask] = useState<Set<string>>(new Set());
   const [processingEventToTask, setProcessingEventToTask] = useState<Set<string>>(new Set());
 
   const [emailToList, setEmailToList] = useState<Record<string, string>>({});
+  const [emailTaskTitle, setEmailTaskTitle] = useState<Record<string, string>>({});
   const [eventToList, setEventToList] = useState<Record<string, string>>({});
+  const [eventTaskTitle, setEventTaskTitle] = useState<Record<string, string>>({});
   const [eventDeleteMap, setEventDeleteMap] = useState<Record<string, boolean>>({});
 
   const handleRunAudit = async () => {
@@ -76,7 +81,7 @@ export default function Dashboard() {
   };
 
   const handleArchiveEmail = async (messageId: string) => {
-    setProcessingEmails((current) => new Set(current).add(messageId));
+    setProcessingEmailActions((current) => ({ ...current, [messageId]: "archive" }));
     try {
       const res = await archiveEmailAction(messageId);
       if (!res.success) {
@@ -91,9 +96,33 @@ export default function Dashboard() {
     } catch (e) {
       console.error(e);
     } finally {
-      setProcessingEmails((current) => {
-        const next = new Set(current);
-        next.delete(messageId);
+      setProcessingEmailActions((current) => {
+        const next = { ...current };
+        delete next[messageId];
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteEmail = async (messageId: string) => {
+    setProcessingEmailActions((current) => ({ ...current, [messageId]: "delete" }));
+    try {
+      const res = await deleteEmailAction(messageId);
+      if (!res.success) {
+        console.error(res.error);
+        alert("Failed to delete email");
+        return;
+      }
+
+      if (report) {
+        setReport({ ...report, emails: report.emails.filter((email) => email.id !== messageId) });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setProcessingEmailActions((current) => {
+        const next = { ...current };
+        delete next[messageId];
         return next;
       });
     }
@@ -101,9 +130,16 @@ export default function Dashboard() {
 
   const handleConvertEmail = async (email: DashboardEmail) => {
     const listName = emailToList[email.id] || "Next Action";
+    const title = (emailTaskTitle[email.id] || email.proposedAction || email.subject).trim();
+
+    if (!title) {
+      alert("Please enter the task title you want to create.");
+      return;
+    }
+
     setProcessingEmailToTask((current) => new Set(current).add(email.id));
     try {
-      const res = await createTaskFromEmailAction(email.id, listName, email.subject);
+      const res = await createTaskFromEmailAction(email.id, listName, title);
       if (res.success && report) {
         setReport({ ...report, emails: report.emails.filter((item) => item.id !== email.id) });
       } else {
@@ -123,9 +159,16 @@ export default function Dashboard() {
   const handleConvertEvent = async (event: DashboardEvent) => {
     const listName = eventToList[event.id] || "Next Action";
     const deleteOriginal = eventDeleteMap[event.id] || false;
+    const title = (eventTaskTitle[event.id] || event.title).trim();
+
+    if (!title) {
+      alert("Please enter the task title you want to create.");
+      return;
+    }
+
     setProcessingEventToTask((current) => new Set(current).add(event.id));
     try {
-      const res = await createTaskFromEventAction(event.id, deleteOriginal, listName, event.title);
+      const res = await createTaskFromEventAction(event.id, deleteOriginal, listName, title);
       if (res.success && report) {
         setReport({ ...report, events: report.events.filter((item) => item.id !== event.id) });
       } else {
@@ -255,11 +298,15 @@ export default function Dashboard() {
                             <svg className="w-3.5 h-3.5 text-transparent group-hover:text-green-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                           </button>
                           <div className="flex flex-col gap-1 w-full relative">
-                            <span className={`text-sm font-medium text-white flex items-center gap-2 transition-all duration-300 ${processingTasks.has(task.id) ? 'line-through text-[#9ca3af]' : ''}`}>
-                               {task.isStale && <span className="bg-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Stale</span>}
+                            <span className={`text-sm font-medium text-white transition-all duration-300 ${processingTasks.has(task.id) ? 'line-through text-[#9ca3af]' : ''}`}>
                                {task.title}
                             </span>
-                            <span className="text-xs text-[#9ca3af] bg-black/30 w-fit px-2 py-0.5 rounded-md">{task.contextOrPerson}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs text-[#9ca3af] bg-black/30 w-fit px-2 py-0.5 rounded-md">{task.contextOrPerson}</span>
+                              <span className="text-xs text-[#9ca3af] bg-white/5 w-fit px-2 py-0.5 rounded-md">
+                                Added {task.addedDate}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -277,6 +324,21 @@ export default function Dashboard() {
                  <div key={evt.id || i} className={`p-4 rounded-xl border-l-2 bg-gradient-to-r relative group ${evt.isTrial ? 'border-purple-500 from-purple-500/10 to-transparent' : evt.type === 'past' ? 'border-gray-500 from-gray-500/5 to-transparent' : 'border-blue-500 from-blue-500/10 to-transparent'}`}>
                    <p className={`text-sm ${evt.isTrial ? 'font-bold text-white' : 'font-medium text-gray-200'}`}>{evt.title}</p>
                    <p className="text-xs text-[#9ca3af] mt-1">{evt.date}</p>
+
+                   <label className="mt-3 flex flex-col gap-1 text-xs text-[#9ca3af]">
+                     Task title to create
+                     <input
+                       type="text"
+                       value={eventTaskTitle[evt.id] ?? evt.title}
+                       onChange={(e) =>
+                         setEventTaskTitle((current) => ({
+                           ...current,
+                           [evt.id]: e.target.value,
+                         }))
+                       }
+                       className="rounded-lg border border-white/10 bg-[#1a1d24] px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                     />
+                   </label>
                    
                    <div className="mt-3 flex items-center gap-3 pt-3 border-t border-white/5 flex-wrap">
                       <select
@@ -320,6 +382,21 @@ export default function Dashboard() {
                   <div className="mt-2 text-xs font-medium text-blue-400 bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
                     <span className="font-bold text-blue-300">Suggested Action:</span> {email.proposedAction}
                   </div>
+
+                  <label className="mt-2 flex flex-col gap-1 text-xs text-[#9ca3af]">
+                    Task title to create
+                    <input
+                      type="text"
+                      value={emailTaskTitle[email.id] ?? email.proposedAction ?? email.subject}
+                      onChange={(e) =>
+                        setEmailTaskTitle((current) => ({
+                          ...current,
+                          [email.id]: e.target.value,
+                        }))
+                      }
+                      className="rounded-lg border border-white/10 bg-[#1a1d24] px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    />
+                  </label>
                   
                   <div className="mt-2 flex items-center justify-between gap-3 pt-2">
                     <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-lg border border-white/5 shadow-inner">
@@ -342,14 +419,23 @@ export default function Dashboard() {
                         {processingEmailToTask.has(email.id) ? 'Converting...' : 'Convert to Task'}
                       </button>
                     </div>
-                    
-                    <button 
-                      onClick={() => handleArchiveEmail(email.id)}
-                      disabled={processingEmails.has(email.id)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/10 text-[#9ca3af] hover:text-white transition-colors disabled:opacity-50"
-                    >
-                      {processingEmails.has(email.id) ? 'Archiving...' : 'Discard / Archive'}
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleArchiveEmail(email.id)}
+                        disabled={Boolean(processingEmailActions[email.id])}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-md border border-white/10 hover:bg-white/10 text-[#9ca3af] hover:text-white transition-colors disabled:opacity-50"
+                      >
+                        {processingEmailActions[email.id] === "archive" ? "Archiving..." : "Archive"}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEmail(email.id)}
+                        disabled={Boolean(processingEmailActions[email.id])}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                      >
+                        {processingEmailActions[email.id] === "delete" ? "Deleting..." : "Delete (Trash)"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

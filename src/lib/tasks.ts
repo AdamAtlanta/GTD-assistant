@@ -47,6 +47,7 @@ export async function fetchGTDLists(): Promise<GTDTasksByList> {
           ...(tasksRes.data.items || []).map((task) => ({
             ...task,
             listId: list.id!,
+            addedDate: formatTaskDate(task.updated),
           })),
         );
 
@@ -58,6 +59,24 @@ export async function fetchGTDLists(): Promise<GTDTasksByList> {
   }
 
   return gtdData;
+}
+
+function formatTaskDate(value: string | null | undefined) {
+  if (!value) {
+    return "Date unavailable";
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Date unavailable";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+  }).format(parsedDate);
 }
 
 export async function markTaskComplete(taskListId: string, taskId: string) {

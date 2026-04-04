@@ -42,3 +42,11 @@ export async function archiveEmail(messageId: string) {
     },
   });
 }
+
+export async function deleteEmail(messageId: string) {
+  const gmail = await getGmailClient();
+  await gmail.users.messages.trash({
+    userId: "me",
+    id: messageId,
+  });
+}
