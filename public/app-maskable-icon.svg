@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Executive Assistant">
+  <rect width="512" height="512" fill="#46585b"/>
+  <rect x="82" y="82" width="348" height="348" rx="78" fill="#fffefa"/>
+  <path d="M140 174h232" stroke="#46585b" stroke-width="22" stroke-linecap="round"/>
+  <path d="M140 256h176" stroke="#9a5b41" stroke-width="22" stroke-linecap="round"/>
+  <path d="M140 338h120" stroke="#6d7f6d" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="355" cy="335" r="40" fill="#46585b"/>
+  <path d="M337 334l16 16 30-36" fill="none" stroke="#fffefa" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

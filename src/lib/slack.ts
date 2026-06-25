@@ -3,7 +3,10 @@ import { WebClient } from "@slack/web-api";
 import type { SlackChannelMessages } from "@/lib/gtd";
 
 const slackToken = process.env.SLACK_BOT_TOKEN ?? "";
-const slackClient = new WebClient(slackToken);
+
+function getSlackClient() {
+  return new WebClient(slackToken);
+}
 
 export async function fetchUnreadSlackMessages() {
   if (!slackToken) {
@@ -12,6 +15,7 @@ export async function fetchUnreadSlackMessages() {
   }
 
   try {
+    const slackClient = getSlackClient();
     // 1. Get the list of channels the bot has access to
     const channelsRes = await slackClient.conversations.list({
       types: "public_channel,private_channel",

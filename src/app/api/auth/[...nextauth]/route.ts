@@ -8,6 +8,15 @@ type GoogleTokenResponse = {
   refresh_token?: string;
 };
 
+const googleScopes = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/gmail.modify",
+];
+
 async function refreshGoogleAccessToken(token: JWT): Promise<JWT> {
   if (!token.refreshToken) {
     return {
@@ -69,14 +78,7 @@ export const authOptions: NextAuthOptions = {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
-          scope: [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/tasks",
-            "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/gmail.modify"
-          ].join(" "),
+          scope: googleScopes.join(" "),
         },
       },
     }),
@@ -98,8 +100,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       return refreshGoogleAccessToken(token);
-
-      return token;
     },
     async session({ session, token }) {
       session.accessToken =

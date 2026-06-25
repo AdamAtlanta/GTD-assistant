@@ -1,5 +1,7 @@
 import type { calendar_v3, gmail_v1, tasks_v1 } from "googleapis";
 
+import type { SmsFollowUpCandidate } from "@/lib/sms";
+
 export const GTD_TASK_LIST_OPTIONS = [
   "Next Action",
   "Waiting for",
@@ -23,7 +25,10 @@ export function normalizeGTDTaskListName(
   return GTD_TASK_LIST_NAME_MAP.get(value.trim().toLowerCase()) ?? null;
 }
 
-export type GTDSourceTask = tasks_v1.Schema$Task & { listId: string };
+export type GTDSourceTask = tasks_v1.Schema$Task & {
+  listId: string;
+  addedDate: string;
+};
 
 export type GTDTasksByList = Partial<Record<GTDTaskListName, GTDSourceTask[]>>;
 
@@ -38,11 +43,35 @@ export type CalendarReviewData = {
   trials: calendar_v3.Schema$Event[];
 };
 
+export type CalendarEventSnapshot = {
+  summary?: calendar_v3.Schema$Event["summary"];
+  description?: calendar_v3.Schema$Event["description"];
+  location?: calendar_v3.Schema$Event["location"];
+  start?: calendar_v3.Schema$Event["start"];
+  end?: calendar_v3.Schema$Event["end"];
+  recurrence?: calendar_v3.Schema$Event["recurrence"];
+  attendees?: calendar_v3.Schema$Event["attendees"];
+  reminders?: calendar_v3.Schema$Event["reminders"];
+  colorId?: calendar_v3.Schema$Event["colorId"];
+  transparency?: calendar_v3.Schema$Event["transparency"];
+  visibility?: calendar_v3.Schema$Event["visibility"];
+};
+
+export type KeepNoteForReview = {
+  id: string;
+  title: string;
+  text: string;
+  listItems: string[];
+  updatedTime: string;
+};
+
 export type AuditSourceData = {
   emails: gmail_v1.Schema$Message[];
   tasks: GTDTasksByList;
   calendar: CalendarReviewData;
   slack: SlackChannelMessages[];
+  smsFollowUps: SmsFollowUpCandidate[];
+  keepNotes: KeepNoteForReview[];
 };
 
 export type DashboardTask = {
@@ -69,9 +98,30 @@ export type DashboardEmail = {
   proposedAction: string;
 };
 
+export type DashboardTextFollowUp = {
+  id: string;
+  conversationId: string;
+  address: string;
+  contactName?: string;
+  lastInboundText: string;
+  lastInboundAt: string;
+  reason: string;
+  suggestedAction: string;
+};
+
+export type DashboardKeepTaskSuggestion = {
+  id: string;
+  noteId: string;
+  sourceTitle: string;
+  suggestedTaskTitle: string;
+  reason: string;
+};
+
 export type DashboardData = {
   tasks: DashboardTask[];
   events: DashboardEvent[];
   emails: DashboardEmail[];
+  textFollowUps: DashboardTextFollowUp[];
+  keepTaskSuggestions: DashboardKeepTaskSuggestion[];
   mindSweep: string[];
 };

@@ -1,12 +1,13 @@
 import { google, tasks_v1 } from "googleapis";
 
 import {
+  type DashboardTask,
   GTD_TASK_LIST_OPTIONS,
   type GTDSourceTask,
   type GTDTasksByList,
   normalizeGTDTaskListName,
 } from "@/lib/gtd";
-import { getGoogleAccessToken, getGoogleOAuthClient } from "@/lib/google-auth";
+import { getGoogleOAuthClient } from "@/lib/google-auth";
 
 export async function getTasksClient(): Promise<tasks_v1.Tasks> {
   return google.tasks({ version: "v1", auth: await getGoogleOAuthClient() });
@@ -80,40 +81,122 @@ function formatTaskDate(value: string | null | undefined) {
 }
 
 export async function markTaskComplete(taskListId: string, taskId: string) {
-  const url = `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(taskListId)}/tasks/${encodeURIComponent(taskId)}`;
-  const accessToken = await getGoogleAccessToken();
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ status: "completed" }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Failed to complete task: ${res.status} ${errText}`);
+  if (!taskListId || !taskId) {
+    throw new Error("Missing Google task list or task id.");
   }
+
+  const tasksClient = await getTasksClient();
+
+  await tasksClient.tasks.patch({
+    tasklist: taskListId,
+    task: taskId,
+    requestBody: {
+      id: taskId,
+      status: "completed",
+      completed: new Date().toISOString(),
+    },
+  });
 }
 
-export async function createTask(listName: string, title: string, notes?: string) {
+export async function reopenTask(taskListId: string, taskId: string) {
+  if (!taskListId || !taskId) {
+    throw new Error("Missing Google task list or task id.");
+  }
+
+  const tasksClient = await getTasksClient();
+
+  await tasksClient.tasks.patch({
+    tasklist: taskListId,
+    task: taskId,
+    requestBody: {
+      id: taskId,
+      status: "needsAction",
+      completed: null,
+    },
+  });
+}
+
+export async function updateTaskTitle(taskListId: string, taskId: string, title: string) {
+  const nextTitle = title.trim();
+
+  if (!taskListId || !taskId) {
+    throw new Error("Missing Google task list or task id.");
+  }
+
+  if (!nextTitle) {
+    throw new Error("Task title cannot be blank.");
+  }
+
+  const tasksClient = await getTasksClient();
+
+  await tasksClient.tasks.patch({
+    tasklist: taskListId,
+    task: taskId,
+    requestBody: {
+      id: taskId,
+      title: nextTitle,
+    },
+  });
+}
+
+export async function deleteTask(taskListId: string, taskId: string) {
+  if (!taskListId || !taskId) {
+    throw new Error("Missing Google task list or task id.");
+  }
+
+  const tasksClient = await getTasksClient();
+
+  await tasksClient.tasks.delete({
+    tasklist: taskListId,
+    task: taskId,
+  });
+}
+
+export async function createTask(
+  listName: string,
+  title: string,
+  notes?: string,
+): Promise<DashboardTask> {
+  const normalizedListName = normalizeGTDTaskListName(listName);
+  const nextTitle = title.trim();
+
+  if (!normalizedListName) {
+    throw new Error(`Task list "${listName}" is not part of this GTD workflow.`);
+  }
+
+  if (!nextTitle) {
+    throw new Error("Task title cannot be blank.");
+  }
+
   const tasksClient = await getTasksClient();
   const listRes = await tasksClient.tasklists.list();
   const allLists = listRes.data.items || [];
   const targetList = allLists.find(
-    (list) => (list.title || "").toLowerCase() === listName.toLowerCase(),
+    (list) => normalizeGTDTaskListName(list.title) === normalizedListName,
   );
 
   if (!targetList || !targetList.id) {
-    throw new Error(`Task list "${listName}" not found.`);
+    throw new Error(`Task list "${normalizedListName}" not found.`);
   }
 
-  await tasksClient.tasks.insert({
+  const insertedTask = await tasksClient.tasks.insert({
     tasklist: targetList.id,
     requestBody: {
-      title,
+      title: nextTitle,
       notes,
     },
   });
+
+  if (!insertedTask.data.id) {
+    throw new Error("Google Tasks created the item but did not return a task id.");
+  }
+
+  return {
+    id: insertedTask.data.id,
+    listId: targetList.id,
+    listName: normalizedListName,
+    title: insertedTask.data.title || nextTitle,
+    contextOrPerson: "",
+    addedDate: formatTaskDate(insertedTask.data.updated || new Date().toISOString()),
+  };
 }

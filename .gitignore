@@ -24,7 +24,9 @@
 .DS_Store
 *.pem
 /data/*.json
+secrets/
 /.codex/
+/tmp-render/
 
 # debug
 npm-debug.log*

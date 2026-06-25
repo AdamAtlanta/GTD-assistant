@@ -43,9 +43,28 @@ export async function archiveEmail(messageId: string) {
   });
 }
 
+export async function unarchiveEmail(messageId: string) {
+  const gmail = await getGmailClient();
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: {
+      addLabelIds: ["INBOX"],
+    },
+  });
+}
+
 export async function deleteEmail(messageId: string) {
   const gmail = await getGmailClient();
   await gmail.users.messages.trash({
+    userId: "me",
+    id: messageId,
+  });
+}
+
+export async function untrashEmail(messageId: string) {
+  const gmail = await getGmailClient();
+  await gmail.users.messages.untrash({
     userId: "me",
     id: messageId,
   });

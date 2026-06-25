@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedSession } from "@/lib/google-auth";
-import { appendSmsMessage, readSmsInbox } from "@/lib/sms";
+import { appendSmsMessage, findSmsFollowUps, readSmsInbox } from "@/lib/sms";
 
 export async function POST(req: Request) {
   try {
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const data = (await req.json()) as Partial<{ sender: string; text: string }>;
+    const data = (await req.json()) as Partial<{ sender: string; text: string; timestamp: string }>;
     const sender = data.sender?.trim();
     const text = data.text?.trim();
 
@@ -30,9 +30,11 @@ export async function POST(req: Request) {
     }
 
     const messages = await appendSmsMessage({
-      sender,
+      address: sender,
+      conversationId: sender,
+      direction: "inbound",
       text,
-      timestamp: new Date().toISOString(),
+      timestamp: data.timestamp || new Date().toISOString(),
     });
 
     return NextResponse.json({ success: true, count: messages.length });
@@ -45,7 +47,8 @@ export async function GET() {
   try {
     await getAuthenticatedSession();
     const messages = await readSmsInbox();
-    return NextResponse.json({ messages });
+    const followUps = await findSmsFollowUps();
+    return NextResponse.json({ messages, followUps });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
